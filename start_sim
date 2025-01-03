@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projectile Simulation</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 1px solid black;
+            margin-top: 20px;
+        }
+        .controls {
+            margin-top: 10px;
+        }
+        .controls label {
+            margin-right: 10px;
+        }
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Projectile Simulation</h1>
+    <canvas id="simulation" width="800" height="600"></canvas>
+    <div class="controls">
+        <div class="slider-container">
+            <label for="speedSlider">Initial Speed (m/s):</label>
+            <input type="range" id="speedSlider" min="0" max="10000" step="1" value="6000">
+            <span id="speedDisplay">6000</span>
+        </div>
+        <label>
+            Angle (degrees):
+            <input type="number" id="angle" value="0" min="0" max="90" step="1">
+        </label>
+        <button id="simulate">Simulate</button>
+        <button id="zoomIn">Zoom In</button>
+        <button id="zoomOut">Zoom Out</button>
+        <button id="reset">Reset</button>
+    </div>
+    <script>
+        const canvas = document.getElementById('simulation');
+        const ctx = canvas.getContext('2d');
+        const G = 6.67430e-11; // gravitational constant
+        const planetMass = 5.972e24; // mass of the planet in kg
+        const planetRadius = 6371000; // radius of the planet in meters
+        let scale = 1 / 30000; // Adjustable scale factor for visualization
+
+        function drawPlanet() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const visualRadius = planetRadius * scale; // Adjusted radius for visualization
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, canvas.height / 2, visualRadius, 0, Math.PI * 2);
+            ctx.fillStyle = 'green';
+            ctx.fill();
+            ctx.stroke();
+
+            // Draw the launch tower
+            const towerHeight = 300000; // 300 km in meters
+            const visualTowerHeight = towerHeight * scale;
+            ctx.beginPath();
+            ctx.rect(canvas.width / 2 - 5, canvas.height / 2 - visualRadius - visualTowerHeight, 10, visualTowerHeight);
+            ctx.fillStyle = 'gray';
+            ctx.fill();
+        }
+
+        function drawTrajectory(speed, angle) {
+            drawPlanet();
+            const angleRad = angle * Math.PI / 180; // Convert angle to radians
+            let vx = speed * Math.cos(angleRad); // Horizontal velocity
+            let vy = speed * Math.sin(angleRad); // Vertical velocity
+            let x = 0;
+            let y = planetRadius + 300000; // Start from the top of the tower
+
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, canvas.height / 2 - y * scale);
+
+            const timeStep = 2; // seconds
+
+            for (let t = 0; t < 100000; t += timeStep) {
+                const r = Math.sqrt(x * x + y * y);
+                if (r <= planetRadius) {
+                    // Stop if the trajectory intersects the planet
+                    break;
+                }
+
+                const gravity = (G * planetMass) / (r * r);
+                const ax = -gravity * (x / r);
+                const ay = -gravity * (y / r);
+
+                vx += ax * timeStep;
+                vy += ay * timeStep;
+                x += vx * timeStep;
+                y += vy * timeStep;
+
+                const canvasX = canvas.width / 2 + x * scale;
+                const canvasY = canvas.height / 2 - y * scale;
+
+                if (canvasX < 0 || canvasX > canvas.width || canvasY < 0 || canvasY > canvas.height) {
+                    break;
+                }
+
+                ctx.lineTo(canvasX, canvasY);
+            }
+
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        const speedSlider = document.getElementById('speedSlider');
+        const speedDisplay = document.getElementById('speedDisplay');
+
+        speedSlider.addEventListener('input', () => {
+            const speed = parseFloat(speedSlider.value);
+            speedDisplay.textContent = speed;
+            const angle = parseFloat(document.getElementById('angle').value);
+            drawTrajectory(speed, angle);
+        });
+
+        document.getElementById('simulate').addEventListener('click', () => {
+            const speed = parseFloat(speedSlider.value);
+            const angle = parseFloat(document.getElementById('angle').value);
+            drawTrajectory(speed, angle);
+        });
+
+        document.getElementById('zoomIn').addEventListener('click', () => {
+            scale *= 1.1; // Increase scale (zoom in)
+            drawPlanet();
+        });
+
+        document.getElementById('zoomOut').addEventListener('click', () => {
+            scale /= 1.1; // Decrease scale (zoom out)
+            drawPlanet();
+        });
+
+        document.getElementById('reset').addEventListener('click', () => {
+            scale = 1 / 30000; // Reset scale to default
+            speedSlider.value = 6000;
+            speedDisplay.textContent = 6000;
+            document.getElementById('angle').value = 0;
+            drawPlanet();
+        });
+
+        drawPlanet();
+    </script>
+</body>
+</html>
