@@ -6,53 +6,101 @@
     <title>Projectile Simulation</title>
     <style>
         body {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            font-family: Arial, sans-serif;
+            margin: 0;
+            overflow: hidden;
         }
         canvas {
-            border: 1px solid black;
-            margin-top: 20px;
+            display: block;
         }
         .controls {
-            margin-top: 10px;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        .info {
+            position: absolute;
+            top: 150px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            max-width: 300px;
+            font-size: 14px;
+            display: none;
         }
         .controls label {
-            margin-right: 10px;
+            margin-right: 5px;
         }
-        .slider-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+        .controls button {
+            margin-top: 5px;
         }
     </style>
 </head>
 <body>
-    <h1>Projectile Simulation</h1>
-    <canvas id="simulation" width="800" height="600"></canvas>
+    <canvas id="simulation"></canvas>
     <div class="controls">
-        <div class="slider-container">
-            <label for="speedSlider">Initial Speed (m/s):</label>
-            <input type="range" id="speedSlider" min="0" max="10000" step="1" value="6000">
-            <span id="speedDisplay">6000</span>
-        </div>
-        <label>
-            Angle (degrees):
-            <input type="number" id="angle" value="0" min="0" max="90" step="1">
-        </label>
+        <label for="speed">Speed (m/s):</label>
+        <input type="range" id="speed" min="0" max="50000" step="1" value="6000">
+        <span id="speedValue">6000</span>
+        <br>
+        <label for="angle">Angle (degrees):</label>
+        <input type="number" id="angle" min="0" max="90" step="1" value="0">
+        <br>
         <button id="simulate">Simulate</button>
         <button id="zoomIn">Zoom In</button>
         <button id="zoomOut">Zoom Out</button>
         <button id="reset">Reset</button>
+        <button id="toggleInfo">Info</button>
+        <button id="launchRocket">Launch Rocket</button>
+    </div>
+    <div class="info" id="infoPanel">
+        <p><strong>Simulation Description:</strong></p>
+        <p>This simulation visualizes the trajectory of a projectile launched from a tower on a planet. Adjust the speed and angle to see how the projectile moves under gravity.</p>
+        <p><strong>Controls:</strong></p>
+        <ul>
+            <li><strong>Speed:</strong> Adjust the initial speed of the projectile using the slider.</li>
+            <li><strong>Angle:</strong> Set the launch angle in degrees.</li>
+            <li><strong>Simulate:</strong> Run the simulation with the selected parameters.</li>
+            <li><strong>Zoom In/Out:</strong> Adjust the view scale of the simulation.</li>
+            <li><strong>Reset:</strong> Reset the simulation to its initial state.</li>
+            <li><strong>Launch Rocket:</strong> Launch the rocket along the simulated trajectory.</li>
+        </ul>
     </div>
     <script>
         const canvas = document.getElementById('simulation');
         const ctx = canvas.getContext('2d');
+        const speedInput = document.getElementById('speed');
+        const speedValue = document.getElementById('speedValue');
+        const angleInput = document.getElementById('angle');
+        const zoomInButton = document.getElementById('zoomIn');
+        const zoomOutButton = document.getElementById('zoomOut');
+        const resetButton = document.getElementById('reset');
+        const simulateButton = document.getElementById('simulate');
+        const toggleInfoButton = document.getElementById('toggleInfo');
+        const launchRocketButton = document.getElementById('launchRocket');
+        const infoPanel = document.getElementById('infoPanel');
+
         const G = 6.67430e-11; // gravitational constant
         const planetMass = 5.972e24; // mass of the planet in kg
         const planetRadius = 6371000; // radius of the planet in meters
         let scale = 1 / 30000; // Adjustable scale factor for visualization
+
+        let trajectory = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            drawPlanet();
+            drawSavedTrajectory();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
 
         function drawPlanet() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -80,6 +128,7 @@
             let x = 0;
             let y = planetRadius + 300000; // Start from the top of the tower
 
+            trajectory = [];
             ctx.beginPath();
             ctx.moveTo(canvas.width / 2, canvas.height / 2 - y * scale);
 
@@ -89,6 +138,7 @@
                 const r = Math.sqrt(x * x + y * y);
                 if (r <= planetRadius) {
                     // Stop if the trajectory intersects the planet
+                    ctx.lineTo(canvas.width / 2 + x * scale, canvas.height / 2 - y * scale);
                     break;
                 }
 
@@ -100,6 +150,8 @@
                 vy += ay * timeStep;
                 x += vx * timeStep;
                 y += vy * timeStep;
+
+                trajectory.push({ x, y });
 
                 const canvasX = canvas.width / 2 + x * scale;
                 const canvasY = canvas.height / 2 - y * scale;
@@ -116,38 +168,108 @@
             ctx.stroke();
         }
 
-        const speedSlider = document.getElementById('speedSlider');
-        const speedDisplay = document.getElementById('speedDisplay');
+        function drawSavedTrajectory() {
+            if (trajectory.length === 0) return;
 
-        speedSlider.addEventListener('input', () => {
-            const speed = parseFloat(speedSlider.value);
-            speedDisplay.textContent = speed;
-            const angle = parseFloat(document.getElementById('angle').value);
+            ctx.beginPath();
+            ctx.moveTo(
+                canvas.width / 2 + trajectory[0].x * scale,
+                canvas.height / 2 - trajectory[0].y * scale
+            );
+
+            for (const point of trajectory) {
+                ctx.lineTo(
+                    canvas.width / 2 + point.x * scale,
+                    canvas.height / 2 - point.y * scale
+                );
+            }
+
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        function launchRocket() {
+            if (trajectory.length === 0) {
+                alert('Please simulate a trajectory first!');
+                return;
+            }
+
+            let index = 0;
+
+            function animateRocket() {
+                if (index >= trajectory.length) return;
+
+                drawPlanet();
+                drawSavedTrajectory();
+                ctx.beginPath();
+                ctx.arc(
+                    canvas.width / 2 + trajectory[index].x * scale,
+                    canvas.height / 2 - trajectory[index].y * scale,
+                    5, 0, Math.PI * 2
+                );
+                ctx.fillStyle = 'blue';
+                ctx.fill();
+
+                index++;
+                requestAnimationFrame(animateRocket);
+            }
+
+            animateRocket();
+        }
+
+        speedInput.addEventListener('input', () => {
+            const speed = parseFloat(speedInput.value);
+            speedValue.textContent = speedInput.value;
+            const angle = parseFloat(angleInput.value);
             drawTrajectory(speed, angle);
         });
 
-        document.getElementById('simulate').addEventListener('click', () => {
-            const speed = parseFloat(speedSlider.value);
-            const angle = parseFloat(document.getElementById('angle').value);
+        zoomInButton.addEventListener('click', () => {
+            scale *= 1.1; // Zoom in
+            drawPlanet();
+            drawSavedTrajectory();
+        });
+
+        zoomOutButton.addEventListener('click', () => {
+            scale /= 1.1; // Zoom out
+            drawPlanet();
+            drawSavedTrajectory();
+        });
+
+        resetButton.addEventListener('click', () => {
+            scale = 1 / 30000; // Reset scale
+            speedInput.value = 6000;
+            speedValue.textContent = 6000;
+            angleInput.value = 0;
+            trajectory = [];
+            drawPlanet();
+        });
+
+        simulateButton.addEventListener('click', () => {
+            const speed = parseFloat(speedInput.value);
+            const angle = parseFloat(angleInput.value);
             drawTrajectory(speed, angle);
         });
 
-        document.getElementById('zoomIn').addEventListener('click', () => {
-            scale *= 1.1; // Increase scale (zoom in)
-            drawPlanet();
+        toggleInfoButton.addEventListener('click', () => {
+            infoPanel.style.display = infoPanel.style.display === 'none' ? 'block' : 'none';
         });
 
-        document.getElementById('zoomOut').addEventListener('click', () => {
-            scale /= 1.1; // Decrease scale (zoom out)
-            drawPlanet();
-        });
+        launchRocketButton.addEventListener('click', launchRocket);
 
-        document.getElementById('reset').addEventListener('click', () => {
-            scale = 1 / 30000; // Reset scale to default
-            speedSlider.value = 6000;
-            speedDisplay.textContent = 6000;
-            document.getElementById('angle').value = 0;
+        canvas.addEventListener('wheel', (event) => {
+            event.preventDefault();
+            const zoomFactor = 1.1;
+            if (event.deltaY < 0) {
+                // Zoom in
+                scale *= zoomFactor;
+            } else {
+                // Zoom out
+                scale /= zoomFactor;
+            }
             drawPlanet();
+            drawSavedTrajectory();
         });
 
         drawPlanet();
